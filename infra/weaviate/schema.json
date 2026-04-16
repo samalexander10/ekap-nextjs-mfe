@@ -1,0 +1,51 @@
+{
+  "classes": [
+    {
+      "class": "HRDocument",
+      "description": "HR policy documents and employee handbooks chunked for RAG retrieval",
+      "vectorizer": "none",
+      "properties": [
+        {
+          "name": "content",
+          "dataType": ["text"],
+          "description": "The text chunk content"
+        },
+        {
+          "name": "documentId",
+          "dataType": ["text"],
+          "description": "UUID of the document in the documents table"
+        },
+        {
+          "name": "filename",
+          "dataType": ["text"],
+          "description": "Original filename of the uploaded document"
+        },
+        {
+          "name": "chunkIndex",
+          "dataType": ["int"],
+          "description": "Zero-based index of this chunk within the document"
+        },
+        {
+          "name": "chunkTotal",
+          "dataType": ["int"],
+          "description": "Total number of chunks in this document"
+        },
+        {
+          "name": "pageNumber",
+          "dataType": ["int"],
+          "description": "Page number this chunk originates from (if applicable)"
+        },
+        {
+          "name": "uploadedBy",
+          "dataType": ["text"],
+          "description": "UUID of the user who uploaded the document"
+        },
+        {
+          "name": "createdAt",
+          "dataType": ["date"],
+          "description": "Timestamp when the chunk was indexed"
+        }
+      ]
+    }
+  ]
+}

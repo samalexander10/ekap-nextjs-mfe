@@ -1,0 +1,214 @@
+version: "3.9"
+
+services:
+  # ---- Infrastructure ----
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: ekap-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - ekap-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: ekap-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "29092:29092"
+    networks:
+      - ekap-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ekap-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ekap_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ekap_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - ekap-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ekap_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ekap-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ekap-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  weaviate:
+    image: semitechnologies/weaviate:1.27.0
+    container_name: ekap-weaviate
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: node1
+    ports:
+      - "8082:8080"
+      - "50051:50051"
+    volumes:
+      - weaviate-data:/var/lib/weaviate
+    networks:
+      - ekap-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/v1/.well-known/ready || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+
+  # ---- Backend Services ----
+
+  chat-service:
+    build:
+      context: ./backend/chat-service
+      dockerfile: Dockerfile
+    container_name: ekap-chat-service
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_PORT: "8080"
+      WEAVIATE_GRPC_PORT: "50051"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8080:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      weaviate:
+        condition: service_healthy
+    networks:
+      - ekap-net
+    restart: unless-stopped
+
+  doc-processor:
+    build:
+      context: ./backend/doc-processor
+      dockerfile: Dockerfile
+    container_name: ekap-doc-processor
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      WEAVIATE_HOST: weaviate
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      weaviate:
+        condition: service_started
+    volumes:
+      - doc-uploads:/tmp/ekap-uploads
+    networks:
+      - ekap-net
+    restart: unless-stopped
+
+  hr-service:
+    build:
+      context: ./backend/hr-service
+      dockerfile: Dockerfile
+    container_name: ekap-hr-service
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ekap_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ekap_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8082:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - ekap-net
+    restart: unless-stopped
+
+  # ---- Frontend ----
+
+  shell:
+    build:
+      context: ./frontend/shell
+      dockerfile: Dockerfile
+    container_name: ekap-shell
+    env_file:
+      - .env
+    environment:
+      # NEXT_PUBLIC_* vars are baked into the browser bundle at build time,
+      # so they must be localhost URLs reachable by the user's browser, not
+      # internal Docker hostnames.
+      NEXT_PUBLIC_CHAT_SERVICE_URL: http://localhost:8080
+      NEXT_PUBLIC_HR_SERVICE_URL: http://localhost:8082
+      NEXT_PUBLIC_DOC_PROCESSOR_URL: http://localhost:8001
+      NEXT_PUBLIC_REMOTE_HR_NAMECHANGE_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - chat-service
+      - hr-service
+      - doc-processor
+      - hr-namechange
+    networks:
+      - ekap-net
+    restart: unless-stopped
+
+  hr-namechange:
+    build:
+      context: ./frontend/remotes/hr-namechange
+      dockerfile: Dockerfile
+    container_name: ekap-hr-namechange
+    ports:
+      - "3001:3001"
+    networks:
+      - ekap-net
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  weaviate-data:
+  doc-uploads:
+
+networks:
+  ekap-net:
+    driver: bridge
