@@ -1,33 +1,25 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { useEffect, useState, ComponentType } from "react";
+import { loadRemoteModule } from "../../../lib/load-remote";
 
-// Dynamically load the Module Federation remote component (Webpack 5 remote, no SSR)
-const NameChangeApp = dynamic(
-  () =>
-    import("hrNamechange/NameChangeApp").catch(() => {
-      const Fallback = () => (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-amber-800">
-          <p className="font-semibold mb-1">Remote module unavailable</p>
-          <p className="text-sm">
-            The HR Name Change micro-frontend is not reachable. Make sure the{" "}
-            <code className="bg-amber-100 px-1 rounded">hr-namechange</code>{" "}
-            remote is running on port 3001.
-          </p>
-        </div>
-      );
-      return { default: Fallback };
-    }),
-  { ssr: false, loading: () => <p className="text-slate-500">Loading…</p> }
-);
+const REMOTE_URL =
+  process.env.NEXT_PUBLIC_REMOTE_HR_NAMECHANGE_URL || "http://localhost:3001";
 
 export default function NameChangePage() {
   const router = useRouter();
+  const [RemoteComponent, setRemoteComponent] = useState<ComponentType<any> | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    loadRemoteModule("hrNamechange", `${REMOTE_URL}/remoteEntry.js`, "./NameChangeApp")
+      .then((mod) => setRemoteComponent(() => mod.default || mod))
+      .catch(() => setLoadError(true));
+  }, []);
 
   const handleComplete = (requestId: string) => {
     console.log("Name change submitted, requestId:", requestId);
-    // Navigate back to chat after a short delay so the user sees the success state
     setTimeout(() => router.push("/chat"), 2500);
   };
 
@@ -41,7 +33,20 @@ export default function NameChangePage() {
           Submit a request to update your legal name in company records.
         </p>
       </div>
-      <NameChangeApp onComplete={handleComplete} />
+      {loadError ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-amber-800">
+          <p className="font-semibold mb-1">Remote module unavailable</p>
+          <p className="text-sm">
+            The HR Name Change micro-frontend is not reachable. Make sure the{" "}
+            <code className="bg-amber-100 px-1 rounded">hr-namechange</code>{" "}
+            remote is running on port 3001.
+          </p>
+        </div>
+      ) : RemoteComponent ? (
+        <RemoteComponent onComplete={handleComplete} />
+      ) : (
+        <p className="text-slate-500">Loading…</p>
+      )}
     </div>
   );
 }

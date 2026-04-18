@@ -1,26 +1,11 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { X, CheckCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, ComponentType } from "react";
+import { loadRemoteModule } from "../lib/load-remote";
 
-const NameChangeApp = dynamic(
-  () =>
-    import("hrNamechange/NameChangeApp").catch(() => {
-      const Fallback = () => (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-amber-800">
-          <p className="font-semibold mb-1">Remote module unavailable</p>
-          <p className="text-sm">
-            The HR Name Change micro-frontend is not reachable. Make sure the{" "}
-            <code className="bg-amber-100 px-1 rounded">hr-namechange</code>{" "}
-            remote is running on port 3001.
-          </p>
-        </div>
-      );
-      return { default: Fallback };
-    }),
-  { ssr: false, loading: () => <p className="text-slate-500 text-sm">Loading form…</p> }
-);
+const REMOTE_URL =
+  process.env.NEXT_PUBLIC_REMOTE_HR_NAMECHANGE_URL || "http://localhost:3001";
 
 interface Props {
   open: boolean;
@@ -29,6 +14,23 @@ interface Props {
 
 export function NameChangeSidePanel({ open, onClose }: Props) {
   const [completedId, setCompletedId] = useState<string | null>(null);
+  const [RemoteComponent, setRemoteComponent] = useState<ComponentType<any> | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || RemoteComponent || loadError) return;
+    setLoading(true);
+    loadRemoteModule("hrNamechange", `${REMOTE_URL}/remoteEntry.js`, "./NameChangeApp")
+      .then((mod) => {
+        setRemoteComponent(() => mod.default || mod);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoadError(true);
+        setLoading(false);
+      });
+  }, [open, RemoteComponent, loadError]);
 
   const handleComplete = (requestId: string) => {
     setCompletedId(requestId);
@@ -77,9 +79,20 @@ export function NameChangeSidePanel({ open, onClose }: Props) {
               Close
             </button>
           </div>
-        ) : (
-          <NameChangeApp onComplete={handleComplete} />
-        )}
+        ) : loading ? (
+          <p className="text-slate-500 text-sm">Loading form…</p>
+        ) : loadError ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-amber-800">
+            <p className="font-semibold mb-1">Remote module unavailable</p>
+            <p className="text-sm">
+              The HR Name Change micro-frontend is not reachable. Make sure the{" "}
+              <code className="bg-amber-100 px-1 rounded">hr-namechange</code>{" "}
+              remote is running on port 3001.
+            </p>
+          </div>
+        ) : RemoteComponent ? (
+          <RemoteComponent onComplete={handleComplete} />
+        ) : null}
       </div>
     </div>
   );
