@@ -1,0 +1,52 @@
+# Local development override — remaps all host ports so this stack
+# can run alongside ekap-iframe and ekap-react-mfe without conflicts.
+# Frontend dev servers are started separately by start-local.sh.
+
+version: "3.9"
+
+services:
+  # ── Infrastructure (shifted host ports) ──────────────────────────────
+  zookeeper:
+    ports:
+      - "2281:2181"
+
+  kafka:
+    ports:
+      - "29292:29092"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29292
+
+  postgres:
+    ports:
+      - "5634:5432"
+
+  redis:
+    ports:
+      - "6579:6379"
+
+  weaviate:
+    ports:
+      - "8280:8080"
+      - "50053:50051"
+
+  # ── Backend Services (shifted host ports) ─────────────────────────────
+  chat-service:
+    ports:
+      - "8200:8000"
+
+  doc-processor:
+    ports:
+      - "8202:8001"
+
+  hr-service:
+    ports:
+      - "8201:8080"
+
+  # ── Disable production frontend containers ────────────────────────────
+  shell:
+    profiles:
+      - production-only
+
+  hr-namechange:
+    profiles:
+      - production-only

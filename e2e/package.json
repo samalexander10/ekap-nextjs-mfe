@@ -1,0 +1,15 @@
+{
+  "name": "ekap-nextjs-mfe-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "pretest": "bddgen",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "bddgen": "bddgen"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "playwright-bdd": "^7.4.0"
+  }
+}
