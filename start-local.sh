@@ -4,7 +4,7 @@
 #   Infrastructure + backends: Docker (ports shifted +200)
 #   Frontend dev servers: Next.js (port 5000) + Webpack (port 5001)
 # ============================================================
-set -euo pipefail
+set -uo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_DIR"
@@ -19,7 +19,7 @@ cleanup() {
   [[ -n "${HR_PID:-}" ]]    && kill "$HR_PID"    2>/dev/null || true
   docker compose $COMPOSE_ARGS down
 }
-trap cleanup EXIT INT TERM
+trap cleanup INT TERM
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
@@ -28,12 +28,13 @@ fi
 
 echo "▶  Starting infrastructure and backend services (ports shifted to avoid conflicts)..."
 docker compose $COMPOSE_ARGS up -d \
-  zookeeper kafka postgres redis weaviate chat-service hr-service doc-processor
+  zookeeper kafka postgres redis weaviate chat-service hr-service doc-processor \
+  || echo "⚠  Some Docker services failed to start — run: docker compose $COMPOSE_ARGS ps"
 
 for dir in frontend/remotes/hr-namechange frontend/shell; do
   if [[ ! -d "$REPO_DIR/$dir/node_modules" ]]; then
     echo "▶  Installing $dir dependencies..."
-    (cd "$REPO_DIR/$dir" && npm install --legacy-peer-deps)
+    (cd "$REPO_DIR/$dir" && npm install --legacy-peer-deps) || echo "⚠  npm install failed in $dir"
   fi
 done
 
