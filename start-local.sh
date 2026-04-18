@@ -2,7 +2,8 @@
 # ============================================================
 # Start ekap-nextjs-mfe for local development
 #   Infrastructure + backends: Docker (ports shifted +200)
-#   Frontend dev servers: Next.js (port 5000) + Webpack (port 5001)
+#   Frontend dev servers: Next.js (port 5100) + Webpack (port 5101)
+#   Note: port 5000 is reserved by macOS AirPlay Receiver
 # ============================================================
 set -uo pipefail
 
@@ -39,7 +40,7 @@ for dir in frontend/remotes/hr-namechange frontend/shell; do
 done
 
 echo "▶  Starting frontend dev servers..."
-(cd "$REPO_DIR/frontend/remotes/hr-namechange" && npm run dev -- --port 5001 2>&1 | sed 's/^/[hr-namechange] /') &
+(cd "$REPO_DIR/frontend/remotes/hr-namechange" && npm run dev -- --port 5101 2>&1 | sed 's/^/[hr-namechange] /') &
 HR_PID=$!
 
 sleep 2
@@ -48,14 +49,14 @@ sleep 2
   NEXT_PUBLIC_CHAT_SERVICE_URL=http://localhost:8200 \
   NEXT_PUBLIC_HR_SERVICE_URL=http://localhost:8201 \
   NEXT_PUBLIC_DOC_PROCESSOR_URL=http://localhost:8202 \
-  NEXT_PUBLIC_REMOTE_HR_NAMECHANGE_URL=http://localhost:5001 \
-  npm run dev -- -p 5000 2>&1 | sed 's/^/[shell]        /') &
+  NEXT_PUBLIC_REMOTE_HR_NAMECHANGE_URL=http://localhost:5101 \
+  npm run dev -- -p 5100 2>&1 | sed 's/^/[shell]        /') &
 SHELL_PID=$!
 
 echo ""
 echo "✅ ekap-nextjs-mfe is starting up"
-echo "   Chat shell:    http://localhost:5000/chat"
-echo "   HR namechange: http://localhost:5001"
+echo "   Chat shell:    http://localhost:5100/chat"
+echo "   HR namechange: http://localhost:5101"
 echo "   Chat API:      http://localhost:8200"
 echo ""
 echo "Press Ctrl+C to stop."

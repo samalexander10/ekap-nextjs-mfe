@@ -10,7 +10,7 @@ export default defineConfig({
   testDir,
 
   use: {
-    baseURL: 'http://localhost:5000',
+    baseURL: 'http://localhost:5100',
     headless: false,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
