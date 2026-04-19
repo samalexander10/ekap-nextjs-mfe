@@ -9,8 +9,6 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
     networks:
       - ekap-net
 
@@ -27,8 +25,6 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    ports:
-      - "29092:29092"
     networks:
       - ekap-net
 
@@ -39,8 +35,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-ekap_db}
       POSTGRES_USER: ${POSTGRES_USER:-ekap_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./infra/postgres/migrations:/docker-entrypoint-initdb.d
@@ -55,8 +49,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ekap-redis
-    ports:
-      - "6379:6379"
     networks:
       - ekap-net
     healthcheck:
@@ -75,9 +67,6 @@ services:
       DEFAULT_VECTORIZER_MODULE: none
       ENABLE_MODULES: ""
       CLUSTER_HOSTNAME: node1
-    ports:
-      - "8082:8080"
-      - "50051:50051"
     volumes:
       - weaviate-data:/var/lib/weaviate
     networks:
@@ -103,8 +92,6 @@ services:
       WEAVIATE_PORT: "8080"
       WEAVIATE_GRPC_PORT: "50051"
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    ports:
-      - "8080:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -127,8 +114,6 @@ services:
       POSTGRES_HOST: postgres
       WEAVIATE_HOST: weaviate
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    ports:
-      - "8001:8001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -154,8 +139,6 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ekap_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    ports:
-      - "8082:8080"
     depends_on:
       postgres:
         condition: service_healthy
